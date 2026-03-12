@@ -1,0 +1,17 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+package-lock.json
+.history/
+.claude/
+CLAUDE.md
+claude-saved-conversation/
+*.txt
+output_glb/
+output_glb_aps/
+output_glb_blender/
+output_glb_freecad/
+output_dxf/
+input_dwg/
