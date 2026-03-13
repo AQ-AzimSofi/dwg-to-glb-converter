@@ -13,5 +13,8 @@ output_glb/
 output_glb_aps/
 output_glb_blender/
 output_glb_freecad/
+output_glb_da/
+bin/
+obj/
 output_dxf/
 input_dwg/
