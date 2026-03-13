@@ -138,8 +138,7 @@ def translate_to_obj(token, object_id):
         "input": {"urn": urn},
         "output": {
             "formats": [
-                {"type": "obj"},
-                {"type": "svf2", "views": ["3d"]},
+                {"type": "svf", "views": ["3d"]},
             ]
         },
     }
