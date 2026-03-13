@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ApplicationPackage SchemaVersion="1.0" Version="1.0" ProductCode="{F4A5B6C7-D8E9-0A1B-2C3D-4E5F6A7B8C9D}" Name="StlExporter" Description="Exports 3DSOLID entities to STL" Author="Matterport">
+  <CompanyDetails Name="Matterport" />
+  <Components>
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD" />
+    <ComponentEntry AppName="StlExporter" ModuleName="./Contents/StlExporter.dll" AppDescription="STL Exporter" LoadOnCommandInvocation="True" LoadOnAutoCADStartup="True">
+      <Commands GroupName="StlExporterCommands">
+        <Command Global="ExportToStl" Local="ExportToStl" />
+      </Commands>
+    </ComponentEntry>
+  </Components>
+</ApplicationPackage>
