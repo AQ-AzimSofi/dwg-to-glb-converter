@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage
+  SchemaVersion="1.0"
+  AutodeskProduct="3ds Max"
+  ProductType="Application"
+  Name="FbxExporter"
+  AppVersion="1.0.0">
+
+  <CompanyDetails Name="Matterport"/>
+
+  <RuntimeRequirements OS="Win64" Platform="3ds Max" SeriesMin="2025" SeriesMax="2025"/>
+
+  <Components>
+    <ComponentEntry ModuleName="./Contents/export_fbx.ms"/>
+  </Components>
+</ApplicationPackage>
