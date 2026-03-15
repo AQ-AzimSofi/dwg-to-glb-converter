@@ -206,6 +206,7 @@ def fbx_to_glb(fbx_path, glb_path):
     import pyassimp
     import pyassimp.postprocess
     import trimesh
+    from trimesh.visual.material import PBRMaterial
 
     default_color = [200, 200, 200, 255]
 
@@ -215,7 +216,6 @@ def fbx_to_glb(fbx_path, glb_path):
     ) as assimp_scene:
         print(f"[convert] loaded FBX: {len(assimp_scene.meshes)} meshes")
 
-        # Read material colors from FBX (set by wirecolor-to-material MAXScript)
         mat_colors = {}
         for i, mat in enumerate(assimp_scene.materials):
             props = dict(mat.properties)
@@ -248,6 +248,7 @@ def fbx_to_glb(fbx_path, glb_path):
 
         walk(assimp_scene.rootnode, np.eye(4))
 
+        pbr_cache = {}
         scene = trimesh.Scene()
         matched = 0
         skipped = 0
@@ -259,12 +260,10 @@ def fbx_to_glb(fbx_path, glb_path):
             if len(verts) == 0 or len(faces) == 0:
                 continue
 
-            # Apply world transform to vertices
             ones = np.ones((len(verts), 1), dtype=np.float64)
             verts_h = np.hstack([verts, ones])
             verts_world = (world_tf @ verts_h.T).T[:, :3]
 
-            # Skip line-like meshes (2D lines/arcs from DWG)
             bbox_min = verts_world.min(axis=0)
             bbox_max = verts_world.max(axis=0)
             dims = sorted(bbox_max - bbox_min)
@@ -275,11 +274,19 @@ def fbx_to_glb(fbx_path, glb_path):
             if color != default_color:
                 matched += 1
 
-            face_colors = np.tile(color, (len(faces), 1)).astype(np.uint8)
+            color_key = tuple(color)
+            if color_key not in pbr_cache:
+                pbr_cache[color_key] = PBRMaterial(
+                    baseColorFactor=[c / 255.0 for c in color],
+                    metallicFactor=0.0,
+                    roughnessFactor=0.5,
+                )
+            material = pbr_cache[color_key]
+
             tmesh = trimesh.Trimesh(
-                vertices=verts_world, faces=faces,
-                face_colors=face_colors, process=False,
+                vertices=verts_world, faces=faces, process=False,
             )
+            tmesh.visual = trimesh.visual.TextureVisuals(material=material)
             scene.add_geometry(tmesh, node_name=f"mesh_{entry_i}")
 
     bounds = scene.bounds
