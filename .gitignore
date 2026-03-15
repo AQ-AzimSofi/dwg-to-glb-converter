@@ -14,6 +14,7 @@ output_glb_aps/
 output_glb_blender/
 output_glb_freecad/
 output_glb_da/
+output_glb_da_fbx/
 bin/
 obj/
 output_dxf/
