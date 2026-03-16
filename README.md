@@ -1,6 +1,6 @@
 # DWG to GLB Converter
 
-Convert AutoCAD DWG files to GLB (binary glTF) using Autodesk cloud APIs.
+Convert AutoCAD DWG files to colored GLB (binary glTF) for Matterport.
 
 ## Why Autodesk's Cloud?
 
@@ -8,29 +8,68 @@ DWG files containing 3DSOLID entities store geometry in the proprietary ACIS for
 
 See [report_dwg_to_glb.md](report_dwg_to_glb.md) for a detailed comparison of all methods tested.
 
-## Two Conversion Approaches
+## Conversion Pipelines
 
-### 1. Model Derivative API (SVF path)
+### 1. GUI Application (Recommended)
 
-Uses the APS Model Derivative API to translate DWG to SVF, then extracts GLB locally.
+Tkinter-based GUI that auto-detects file type and color data, then runs the appropriate pipeline.
 
-**Pipeline:** DWG -> upload -> Model Derivative API -> SVF -> forge-convert-utils -> glTF -> gltf-pipeline -> GLB
+```bash
+python3 gui.py
+```
 
-**Pros:** Simple setup, no custom plugin needed.
-**Cons:** Requires Node.js for SVF extraction, multi-step local post-processing.
+### 2. Design Automation FBX (Cloud, Preferred)
 
-### 2. Design Automation API (STL path)
+Uses 3ds Max in Autodesk's cloud to convert DWG to FBX with materials, then locally to GLB.
 
-Runs a custom AutoCAD plugin in the cloud that exports 3DSOLID entities directly to STL, then converts to GLB locally with trimesh.
+**Pipeline:** DWG -> Design Automation (3ds Max + MAXScript) -> FBX with materials -> pyassimp + trimesh -> GLB
 
-**Pipeline:** DWG -> upload -> Design Automation (AutoCAD + custom plugin) -> STL -> trimesh -> GLB
+```bash
+# One-time setup
+python3 converters/design-automation-fbx/setup_da_fbx.py
 
-**Pros:** Single Python script for the full pipeline, handles all entity types (3DSOLID, 3DFACE, MESH, curves).
-**Cons:** Requires one-time setup to register the plugin with APS.
+# Convert
+python3 converters/design-automation-fbx/convert_da_fbx.py input_dwg/file.dwg [-o output_dir]
+```
+
+### 3. Local FBX + DWG (No Cloud Needed)
+
+Customer exports FBX from 3ds Max/AutoCAD (grey geometry), our script reads colors from the original DWG and combines them.
+
+**Pipeline:** FBX (geometry) + DWG/DXF (layer colors via ezdxf) -> pyassimp + trimesh -> colored GLB
+
+```bash
+python3 converters/fbx-dwg-to-glb/convert.py <fbx_file> <dwg_or_dxf_file> [-o output_dir]
+```
+
+### 4. Model Derivative API (Legacy)
+
+Uses APS Model Derivative API to translate DWG to SVF, then extracts GLB locally.
+
+**Pipeline:** DWG -> Model Derivative API -> SVF -> forge-convert-utils -> glTF -> GLB
+
+```bash
+python3 converters/aps/convert_aps.py input_dwg/file.dwg
+node converters/aps/svf_to_glb.js <urn> [output_dir]
+```
+
+### 5. Design Automation STL (Legacy)
+
+Runs a custom AutoCAD C# plugin in the cloud that exports entities to STL.
+
+**Pipeline:** DWG -> Design Automation (AutoCAD + C# plugin) -> STL -> trimesh -> GLB
+
+```bash
+# One-time setup (requires .NET SDK)
+python3 converters/design-automation/setup_da.py
+
+# Convert
+python3 converters/design-automation/convert_da.py input_dwg/file.dwg [-o output_dir]
+```
 
 ## Setup
 
-### APS credentials
+### APS Credentials
 
 Create an Autodesk developer account and an APS application with **Data Management API**, **Model Derivative API**, and **Design Automation API** enabled.
 
@@ -39,90 +78,48 @@ cp .env.example .env
 # Edit .env with your APS_CLIENT_ID and APS_CLIENT_SECRET
 ```
 
-### Python dependencies
+### Python Dependencies
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install requests python-dotenv trimesh
+pip install requests python-dotenv trimesh numpy ezdxf pyassimp setuptools
 ```
 
-### Node.js dependencies (only needed for Method 1)
+### Node.js Dependencies (Legacy Method 4 Only)
 
 ```bash
 npm install
 ```
 
-### Design Automation setup (only needed for Method 2)
-
-One-time registration of the AutoCAD plugin with APS. Requires .NET SDK for building the C# plugin.
-
-```bash
-python3 converters/design-automation/setup_da.py
-```
-
-## Usage
-
-### Method 1: Model Derivative API
-
-#### Step 1: Upload DWG and translate to SVF
-
-```bash
-python3 converters/aps/convert_aps.py input_dwg/your_file.dwg
-```
-
-This uploads the DWG to Autodesk's cloud and translates it to SVF format. It outputs a base64 URN.
-
-#### Step 2: Extract GLB from SVF
-
-```bash
-node converters/aps/svf_to_glb.js <urn> [output_dir]
-```
-
-#### Step 3: Package as GLB (if needed)
-
-```bash
-npx gltf-pipeline -i output_glb_aps/output.gltf -o output_glb_aps/output.glb
-```
-
-For complex models with validation errors:
-
-```bash
-npx @gltf-transform/cli copy output.gltf output_fixed.glb
-```
-
-### Method 2: Design Automation API
-
-```bash
-python3 converters/design-automation/convert_da.py input_dwg/your_file.dwg [-o output_dir]
-```
-
-This uploads the DWG, runs AutoCAD in the cloud with the STL exporter plugin, downloads the resulting STL, and converts it to GLB. Output defaults to `output_glb_da/`.
-
 ## Project Structure
 
 ```
+gui.py                              -- Tkinter GUI application
 converters/
-  aps/
-    convert_aps.py           -- Upload + translate DWG via Model Derivative API
-    svf_to_glb.js            -- Extract GLB from SVF translation result
-  design-automation/
-    convert_da.py            -- Full DWG to GLB pipeline via Design Automation API
-    setup_da.py              -- One-time plugin registration and activity setup
-    plugin/
-      Commands.cs            -- AutoCAD C# plugin that exports entities to STL
-      StlExporter.csproj     -- .NET project file for the plugin
-      PackageContents.xml    -- AutoCAD plugin manifest
-  opensource-attempts/        -- Failed open-source approaches (archived)
+  design-automation-fbx/            -- Method 2: DA 3ds Max FBX (preferred cloud)
+    convert_da_fbx.py               -- Full pipeline: upload, convert, download, GLB
+    setup_da_fbx.py                 -- One-time APS activity registration
+    export_fbx.ms                   -- MAXScript: wirecolor -> material, export FBX
+  fbx-dwg-to-glb/                   -- Method 3: Local FBX + DWG
+    convert.py                      -- Combine grey FBX geometry + DWG layer colors
+  aps/                              -- Method 4: APS SVF (legacy)
+    convert_aps.py
+    svf_to_glb.js
+  design-automation/                -- Method 5: DA AutoCAD STL (legacy)
+    convert_da.py
+    setup_da.py
+    plugin/                         -- C# AutoCAD plugin
+  opensource-attempts/              -- Archived failed approaches
 docs/
-  process-explained.md       -- Detailed explanation of the conversion process
-report_dwg_to_glb.md        -- Method comparison report
+  process-explained.md              -- Technical explanation of APS API workflow
+report_dwg_to_glb.md               -- Method comparison report
 ```
 
 ## Requirements
 
 - Python 3.12+
-- Node.js 18+ (for Method 1 only)
-- .NET SDK (for building the Design Automation plugin)
+- Node.js 18+ (legacy Method 4 only)
+- .NET SDK (legacy Method 5 plugin build only)
 - Autodesk developer account (free tier available)
-- Internet connection (cloud-based translation)
+- ODAFileConverter (for DWG -> DXF conversion in Method 3)
